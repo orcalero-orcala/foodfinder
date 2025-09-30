@@ -364,17 +364,14 @@
         loadData();
 
         // Add click listener for setting home and adding restaurants
-        map.on('click', (event) => {
-            if (addingRestaurant) {
-                pendingRestaurantLocation = {
-                    lat: event.latlng.lat,
-                    lng: event.latlng.lng
-                };
-                finalizeAddRestaurant();
-            } else {
-                setHome(event.latlng.lat, event.latlng.lng);
-            }
-        });
+   map.on('click', function(e) {
+    if (addingRestaurant) {
+        pendingRestaurantLocation = { lat: e.latlng.lat, lng: e.latlng.lng };
+        finalizeAddRestaurant();
+    }
+    // no else — clicking map won’t set home
+});
+
 
         // Display existing restaurants and home
         displayRestaurants();
@@ -384,14 +381,6 @@
         
         updateRestaurantCount();
     }
-
-   function setHome(lat, lng) {
-    // Home location is fixed
-    homeLocation = { lat: -3.3627695474558266, lng: 114.62793400556963 };
-    displayHome();
-    updateHomeStatus();
-    updateDistances();
-}
 
 
 function clearHome() {
@@ -709,16 +698,16 @@ window.onload = function() {
 
     // Add click listener
     map.on('click', (event) => {
-        if (addingRestaurant) {
-            pendingRestaurantLocation = {
-                lat: event.latlng.lat,
-                lng: event.latlng.lng
-            };
-            finalizeAddRestaurant();
-        } else {
-            setHome(event.latlng.lat, event.latlng.lng);
-        }
-    });
+    if (addingRestaurant) {
+        pendingRestaurantLocation = {
+            lat: event.latlng.lat,
+            lng: event.latlng.lng
+        };
+        finalizeAddRestaurant();
+    }
+    // no home setting on click
+});
+
 
     // Show restaurants + home
     displayRestaurants();
@@ -728,8 +717,22 @@ window.onload = function() {
 
 function applyHome() {
     const input = document.getElementById('homeInput').value.trim();
-    if (!input) return;
 
+    // If textbox is empty → clear home
+    if (!input) {
+        homeLocation = null;
+        localStorage.removeItem('homeLocation');
+
+        if (homeMarker) {
+            map.removeLayer(homeMarker);
+            homeMarker = null;
+        }
+
+        updateHomeStatus();
+        return;
+    }
+
+    // Parse lat,lng
     const parts = input.split(",");
     if (parts.length !== 2) return alert("Format must be: lat,lng");
 
@@ -745,6 +748,7 @@ function applyHome() {
     updateDistances();
     map.setView([lat, lng], 13); // zoom in on new home
 }
+
 
 
 
