@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurant Finder</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        body {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(180deg, #a1a1a1 0%, #ffffff 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+            height: calc(100vh - 40px);
+        }
+
+        .sidebar {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow-y: auto;
+        }
+
+        .map-container {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            min-height: 500px;
+        }
+
+        h1 {
+            color: #333;
+            margin: 0 0 25px 0;
+            font-size: 24px;
+            text-align: center;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding-bottom: 25px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .section:last-child {
+            border-bottom: none;
+        }
+
+        .section h3 {
+            color: #555;
+            margin: 0 0 15px 0;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .filter-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .filter-group select {
+            margin-top: 0;
+        }
+
+        .data-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .data-controls button {
+            margin-top: 0;
+            padding: 10px;
+            font-size: 12px;
+        }
+
+        .home-status {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .home-status.set {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .restaurant-count {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            margin-top: 15px;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .file-input-label {
+            background: #28a745;
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        .file-input-label:hover {
+            background: #218838;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+                height: auto;
+                min-height: calc(100vh - 40px);
+            }
+
+            .sidebar {
+                order: 2;
+            }
+
+            .map-container {
+                order: 1;
+                height: 400px;
+            }
+
+            #map {
+                min-height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h1>🍽️ Restaurant Finder</h1>
+            
+<div class="section">
+    <h3>📍 Set Home Location</h3>
+    <div class="form-group">
+        <label>Enter Coordinates (lat,lng)</label>
+        <input type="text" id="homeInput" placeholder="-3.3,114.6" onblur="applyHome()">
+    </div>
+    <div class="home-status" id="homeStatus">No home set</div>
+</div>
+
+
+
+            <div class="section">
+                <h3>➕ Add Restaurant</h3>
+                <div class="form-group">
+                    <label>Restaurant Name</label>
+                    <input type="text" id="restaurantName" placeholder="Enter restaurant name">
+                </div>
+                <div class="form-group">
+                    <label>Food Type</label>
+                    <select id="foodType">
+                        <option value="Western">Western</option>
+                        <option value="Chinese">Chinese</option>
+                        <option value="Japanese">Japanese</option>
+                        <option value="Indian">Indian</option>
+                        <option value="Thai">Thai</option>
+                        <option value="Italian">Italian</option>
+                        <option value="Indonesian">Indonesian</option>
+                        <option value="Korean">Korean</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <div>
+                        <label>AC Available</label>
+                        <select id="acAvailable">
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Price Range</label>
+                        <select id="priceRange">
+                            <option value="Cheap">Cheap</option>
+                            <option value="Mid">Mid</option>
+                            <option value="Expensive">Expensive</option>
+                        </select>
+                    </div>
+                </div>
+                <button onclick="addRestaurant()">Add Restaurant</button>
+                <div style="text-align: center; margin-top: 10px; color: #666; font-size: 12px;">
+                    Click on map to place restaurant
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>🔍 Filter Restaurants</h3>
+                <div class="form-group">
+                    <label>Food Type</label>
+                    <select id="filterFoodType" onchange="applyFilters()">
+                        <option value="">All Types</option>
+                        <option value="Western">Western</option>
+                        <option value="Chinese">Chinese</option>
+                        <option value="Japanese">Japanese</option>
+                        <option value="Indian">Indian</option>
+                        <option value="Thai">Thai</option>
+                        <option value="Italian">Italian</option>
+                        <option value="Indonesian">Indonesian</option>
+                        <option value="Korean">Korean</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <div>
+                        <label>AC Available</label>
+                        <select id="filterAC" onchange="applyFilters()">
+                            <option value="">All</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Price Range</label>
+                        <select id="filterPrice" onchange="applyFilters()">
+                            <option value="">All Prices</option>
+                            <option value="Cheap">Cheap</option>
+                            <option value="Mid">Mid</option>
+                            <option value="Expensive">Expensive</option>
+                        </select>
+                    </div>
+                </div>
+                <button onclick="clearFilters()">Clear All Filters</button>
+            </div>
+
+            <div class="section">
+                <h3>💾 Data Management</h3>
+                <div class="data-controls">
+                    <button onclick="exportData()">Export Data</button>
+                    <label for="fileInput" class="file-input-label">Import Data</label>
+                </div>
+                <input type="file" id="fileInput" accept=".json" onchange="importData(event)">
+                <button onclick="clearAllData()" style="background: #dc3545; margin-top: 10px;">Clear All Data</button>
+            </div>
+
+            <div class="restaurant-count" id="restaurantCount">0 restaurants found</div>
+        </div>
+
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <script>
+    let map;
+    let restaurants = [];
+    let homeLocation = null;
+    let markers = [];
+    let homeMarker = null;
+    let addingRestaurant = false;
+    let pendingRestaurantLocation = null;
+
+    // Load data from localStorage
+    function loadData() {
+        const savedRestaurants = localStorage.getItem('restaurants');
+        const savedHome = localStorage.getItem('homeLocation');
+        
+        if (savedRestaurants) {
+            restaurants = JSON.parse(savedRestaurants);
+        }
+        
+        if (savedHome) {
+            homeLocation = JSON.parse(savedHome);
+            updateHomeStatus();
+        }
+    }
+
+    // Save data to localStorage
+    function saveData() {
+        localStorage.setItem('restaurants', JSON.stringify(restaurants));
+        if (homeLocation) {
+            localStorage.setItem('homeLocation', JSON.stringify(homeLocation));
+        }
+    }
+
+    // Initialize map (Leaflet)
+    function initMap() {
+        map = L.map('map').setView([20, 0], 2); // whole world by default
+
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://openstreetmap.org">OSM</a> contributors'
+        }).addTo(map);
+
+        // Load saved data
+        loadData();
+
+        // Add click listener for setting home and adding restaurants
+        map.on('click', (event) => {
+            if (addingRestaurant) {
+                pendingRestaurantLocation = {
+                    lat: event.latlng.lat,
+                    lng: event.latlng.lng
+                };
+                finalizeAddRestaurant();
+            } else {
+                setHome(event.latlng.lat, event.latlng.lng);
+            }
+        });
+
+        // Display existing restaurants and home
+        displayRestaurants();
+        if (homeLocation) {
+            displayHome();
+        }
+        
+        updateRestaurantCount();
+    }
+
+   function setHome(lat, lng) {
+    // Home location is fixed
+    homeLocation = { lat: -3.3627695474558266, lng: 114.62793400556963 };
+    displayHome();
+    updateHomeStatus();
+    updateDistances();
+}
+
+
+function clearHome() {
+    alert("Home location is fixed and cannot be removed.");
+}
+
+
+    // Display home marker
+    function displayHome() {
+        if (homeMarker) {
+            map.removeLayer(homeMarker);
+        }
+
+        homeMarker = L.marker([homeLocation.lat, homeLocation.lng], {
+            icon: L.divIcon({
+                className: "custom-home-marker",
+                html: "🏠",
+                iconSize: [32, 32]
+            })
+        }).addTo(map);
+    }
+
+    // Update home status display
+   function updateHomeStatus() {
+    const status = document.getElementById('homeStatus');
+    if (homeLocation) {
+        status.textContent = `✅ Home set at (${homeLocation.lat.toFixed(4)}, ${homeLocation.lng.toFixed(4)})`;
+        status.className = 'home-status set';
+    } else {
+        status.textContent = 'No home set';
+        status.className = 'home-status';
+    }
+}
+
+
+    // Start adding restaurant process
+    function addRestaurant() {
+        const name = document.getElementById('restaurantName').value.trim();
+        if (!name) {
+            alert('Please enter a restaurant name');
+            return;
+        }
+
+        addingRestaurant = true;
+        document.body.style.cursor = 'crosshair';
+        alert('Click on the map to place the restaurant');
+    }
+
+    // Finalize adding restaurant
+    function finalizeAddRestaurant() {
+        if (!pendingRestaurantLocation) return;
+
+        const name = document.getElementById('restaurantName').value.trim();
+        const foodType = document.getElementById('foodType').value;
+        const acAvailable = document.getElementById('acAvailable').value;
+        const priceRange = document.getElementById('priceRange').value;
+
+        const restaurant = {
+            id: Date.now(),
+            name,
+            foodType,
+            acAvailable,
+            priceRange,
+            location: pendingRestaurantLocation
+        };
+
+        restaurants.push(restaurant);
+        saveData();
+        displayRestaurants();
+        updateRestaurantCount();
+
+        // Reset form
+        document.getElementById('restaurantName').value = '';
+        addingRestaurant = false;
+        pendingRestaurantLocation = null;
+        document.body.style.cursor = 'default';
+
+        alert('Restaurant added successfully!');
+    }
+
+    // Calculate distance between two points
+    function calculateDistance(lat1, lng1, lat2, lng2) {
+        const R = 6371; // Earth's radius in km
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLng = (lng2 - lng1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLng/2) * Math.sin(dLng/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+    }
+
+    // Update distances for all restaurants
+    function updateDistances() {
+        if (!homeLocation) return;
+
+        restaurants.forEach(restaurant => {
+            restaurant.distance = calculateDistance(
+                homeLocation.lat, homeLocation.lng,
+                restaurant.location.lat, restaurant.location.lng
+            );
+        });
+    }
+
+    // Display restaurants on map
+    function displayRestaurants() {
+        // Clear existing markers
+        markers.forEach(marker => map.removeLayer(marker));
+        markers = [];
+
+        // Update distances if home is set
+        if (homeLocation) {
+            updateDistances();
+        }
+
+        // Get food type colors
+        const foodTypeColors = {
+            'Western': '#FF6B6B',
+            'Chinese': '#FFD93D',
+            'Japanese': '#6BCF7F',
+            'Indian': '#FF8E53',
+            'Thai': '#4ECDC4',
+            'Italian': '#45B7D1',
+            'Indonesian': '#96CEB4',
+            'Korean': '#FFEAA7',
+            'Other': '#DDA0DD'
+        };
+
+        restaurants.forEach(restaurant => {
+            const color = foodTypeColors[restaurant.foodType] || '#DDA0DD';
+            
+            const marker = L.marker([restaurant.location.lat, restaurant.location.lng], {
+                icon: L.divIcon({
+                    className: "custom-restaurant-marker",
+                    html: `<div style="width:32px;height:32px;border-radius:50%;background:${color};
+                            display:flex;align-items:center;justify-content:center;color:white;
+                            border:2px solid #fff;font-size:16px;">🍽️</div>`,
+                    iconSize: [32, 32]
+                })
+            }).addTo(map);
+
+            const distanceText = restaurant.distance ? 
+                `<br><strong>Distance from home:</strong> ${restaurant.distance.toFixed(2)} km` : '';
+
+            marker.bindPopup(`
+                <div style="font-family: Arial, sans-serif; max-width: 250px;">
+                    <h3 style="margin: 0 0 10px 0; color: #333;">${restaurant.name}</h3>
+                    <p style="margin: 5px 0;"><strong>Food Type:</strong> ${restaurant.foodType}</p>
+                    <p style="margin: 5px 0;"><strong>AC Available:</strong> ${restaurant.acAvailable}</p>
+                    <p style="margin: 5px 0;"><strong>Price Range:</strong> ${restaurant.priceRange}</p>
+                    ${distanceText}
+                    <button onclick="deleteRestaurant(${restaurant.id})" 
+                            style="background: #dc3545; color: white; border: none; padding: 5px 10px; 
+                                   border-radius: 4px; cursor: pointer; margin-top: 10px;">
+                        Delete Restaurant
+                    </button>
+                </div>
+            `);
+
+            markers.push(marker);
+            marker.restaurantId = restaurant.id;
+        });
+
+        // Apply current filters
+        applyFilters();
+    }
+
+    // Delete restaurant
+    function deleteRestaurant(id) {
+        if (confirm('Are you sure you want to delete this restaurant?')) {
+            restaurants = restaurants.filter(r => r.id !== id);
+            saveData();
+            displayRestaurants();
+            updateRestaurantCount();
+        }
+    }
+
+    // Apply filters
+    function applyFilters() {
+        const foodTypeFilter = document.getElementById('filterFoodType').value;
+        const acFilter = document.getElementById('filterAC').value;
+        const priceFilter = document.getElementById('filterPrice').value;
+
+        let visibleCount = 0;
+
+        markers.forEach(marker => {
+            const restaurant = restaurants.find(r => r.id === marker.restaurantId);
+            if (!restaurant) return;
+
+            const matchesFoodType = !foodTypeFilter || restaurant.foodType === foodTypeFilter;
+            const matchesAC = !acFilter || restaurant.acAvailable === acFilter;
+            const matchesPrice = !priceFilter || restaurant.priceRange === priceFilter;
+
+            const isVisible = matchesFoodType && matchesAC && matchesPrice;
+
+            if (isVisible) {
+                map.addLayer(marker);
+                visibleCount++;
+            } else {
+                map.removeLayer(marker);
+            }
+        });
+
+        // Update count
+        document.getElementById('restaurantCount').textContent = 
+            `${visibleCount} restaurant${visibleCount !== 1 ? 's' : ''} found`;
+    }
+
+    // Clear all filters
+    function clearFilters() {
+        document.getElementById('filterFoodType').value = '';
+        document.getElementById('filterAC').value = '';
+        document.getElementById('filterPrice').value = '';
+        applyFilters();
+    }
+
+    // Update restaurant count
+    function updateRestaurantCount() {
+        const count = restaurants.length;
+        document.getElementById('restaurantCount').textContent = 
+            `${count} restaurant${count !== 1 ? 's' : ''} found`;
+    }
+
+    // Export data
+    function exportData() {
+        const data = {
+            restaurants: restaurants,
+            homeLocation: homeLocation,
+            exportDate: new Date().toISOString()
+        };
+
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `restaurant-data-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    // Import data
+    function importData(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                
+                if (data.restaurants && Array.isArray(data.restaurants)) {
+                    restaurants = data.restaurants;
+                }
+                
+                if (data.homeLocation) {
+                    homeLocation = data.homeLocation;
+                    updateHomeStatus();
+                    displayHome();
+                }
+
+                saveData();
+                displayRestaurants();
+                updateRestaurantCount();
+                clearFilters();
+                
+                alert('Data imported successfully!');
+            } catch (error) {
+                alert('Error importing data. Please check the file format.');
+            }
+        };
+        reader.readAsText(file);
+        
+        // Reset file input
+        event.target.value = '';
+    }
+
+    // Clear all data
+    function clearAllData() {
+        if (confirm('Are you sure you want to delete all restaurants and home location? This cannot be undone.')) {
+            restaurants = [];
+            homeLocation = null;
+            localStorage.removeItem('restaurants');
+            localStorage.removeItem('homeLocation');
+            
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+            
+            if (homeMarker) {
+                map.removeLayer(homeMarker);
+                homeMarker = null;
+            }
+            
+            updateHomeStatus();
+            updateRestaurantCount();
+            clearFilters();
+            
+            alert('All data cleared successfully!');
+        }
+    }
+
+// Initialize map when page loads
+window.onload = function() {
+    map = L.map('map').setView([20, 0], 2); // show whole world by default
+
+
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://openstreetmap.org">OSM</a> contributors'
+    }).addTo(map);
+
+    // Load saved data
+    loadData();
+
+    // Add click listener
+    map.on('click', (event) => {
+        if (addingRestaurant) {
+            pendingRestaurantLocation = {
+                lat: event.latlng.lat,
+                lng: event.latlng.lng
+            };
+            finalizeAddRestaurant();
+        } else {
+            setHome(event.latlng.lat, event.latlng.lng);
+        }
+    });
+
+    // Show restaurants + home
+    displayRestaurants();
+    if (homeLocation) displayHome();
+    updateRestaurantCount();
+};
+
+function applyHome() {
+    const input = document.getElementById('homeInput').value.trim();
+    if (!input) return;
+
+    const parts = input.split(",");
+    if (parts.length !== 2) return alert("Format must be: lat,lng");
+
+    const lat = parseFloat(parts[0]);
+    const lng = parseFloat(parts[1]);
+
+    if (isNaN(lat) || isNaN(lng)) return alert("Invalid coordinates");
+
+    homeLocation = { lat, lng };
+    saveData();
+    displayHome();
+    updateHomeStatus();
+    updateDistances();
+    map.setView([lat, lng], 13); // zoom in on new home
+}
+
+
+
+</script>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+</body>
+</html>
